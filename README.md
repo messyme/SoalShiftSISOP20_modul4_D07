@@ -69,3 +69,194 @@ INFO::200419-18:29:33::RENAME::/iz1/yena.jpg::/iz1/yena.jpeg
 
 
 ## JAWABAN
+
+### 1. ENCRIPSI V1
+#### FUSE OPERATIONS
+```
+static struct fuse_operations xmp_oper = 
+{
+    .getattr  = xmp_getattr,
+    .readdir  = xmp_readdir,
+    .read     = xmp_read,
+    .mknod    = xmp_mknod,
+    .mkdir    = xmp_mkdir,
+    .write    = xmp_write,
+    .open     = xmp_open,
+    .truncate = xmp_truncate,
+    .unlink   = xmp_unlink,
+    .rmdir    = xmp_rmdir,
+    .rename   = xmp_rename,
+    .access = xmp_access,
+	.utimens = xmp_utimens,
+    .create = xmp_create,
+};
+```
+xmp berfungsi untuk mengenkripsi dan mendekripsi file
+
+#### ENKRIPSI
+fungsi encrypt akan dipanggil di ```readdir``` dan ```rename```
+```
+void encrypt_1 (char* str)
+{
+	if(!strcmp(str,".") || !strcmp(str,"..")) return;
+	int panjang = strlen(str);
+	for(int i=0; i<panjang; i++)
+	{
+		for(int j=0; j<87; j++)
+		{
+            if (str[i] == '/') 
+                continue;
+			if(str[i] == cipher[j])
+			{
+				str[i] = cipher[(j+10)%87];
+				break;
+			}
+		}
+	}
+}
+```
+Program di atas adalah untuk mendapatkan indeks file tanpa slash yang akan dienkripsi atau di dekripsi.
+
+```
+int encrypt(char *src){
+    DIR *dp;
+    struct dirent *d;
+    char name[100];
+    char path[1000], path1[1000]; 
+    char path2[3000];
+
+    dp = opendir(src);
+    if(dp == NULL){
+        return -errno;
+    }
+
+    while ((d=readdir(dp)) != NULL){
+        struct stat stat;
+        memset(&stat, 0, sizeof(stat));
+
+        strcpy(name, d->d_name);
+        sprintf(path, "%s/%s", src, name);
+
+        if(strcmp(name, ".") && strcmp(name, "..") && d->d_type == DT_DIR){
+            char folder[1000];
+
+            strcpy(folder, name);
+            encrypt_1(folder);
+
+            strcpy(path1, path);
+            sprintf(path2, "%s/%s", path1, folder);
+
+            int res = rename(path1, path2);
+            if(res!=0){
+                return -errno;
+            }
+        }
+        if(d->d_type == DT_REG){
+            char *ext;
+
+            ext = strrchr(name, '.');
+
+            if(ext == NULL){
+                encrypt_1(name);
+                sprintf(path2, "%s/%s", path, name);
+            } else {
+                int z = strlen(ext);
+                size_t n = sizeof(name)/sizeof(name[0]);
+                
+                int noext = z-n+1;
+                char noname[1000];
+
+                snprintf(noname, noext, "%s", name);
+                encrypt_1(noname);
+
+                strcat(noname, ext);
+                sprintf(path2, "%s/%s", path, noname);
+            }
+
+            int res = rename(path, path2);
+            if(res!=0){
+                return -errno;
+            }
+        }
+    }
+
+    closedir(dp);
+    return 0;
+
+}
+```
+
+#### DEKRIPSI
+fungsi dekripsi akan dipanggil di ```getattr```, ```readdir```, ```read```, ```mkdir```, ```open```, dll.
+```
+void decrypt_1 (char* str)
+{
+	if(!strcmp(str,".") || !strcmp(str,"..")) 
+        return;
+	int panjang = strlen(str);
+	for(int i=0; i<panjang; i++)
+	{
+		for(int j=0; j<87; j++)
+		{
+            if (str[i] == '/')
+                continue;
+			if(str[i]==cipher[j])
+			{
+				str[i] = cipher[(j+77)%87];
+				break;
+			}
+		}
+	}
+}
+
+```
+
+
+### 2. ENCRIPSI V2
+
+
+### 3. SINKRONISASI DIREKTORI OTOMATIS
+
+
+### 4. LOG SYSTEM
+```
+void logInfo (char * str)
+{
+	FILE * logFile;
+    logfile = fopen("/home/maisie/fs.log", "a");
+	time_t rawtime;
+	struct tm * timeinfo;
+	time ( &rawtime );
+	timeinfo = localtime (&rawtime);
+    
+    int year, month, day, hour, minute, second;
+    year = timeinfo->tm_year+1900;
+    month = timeinfo->tm_mon+1;
+    day = timeinfo->tm_mday;
+    hour = timeinfo->tm_hour;
+    minute = timeinfo->tm_min;
+    second = timeinfo->tm_sec;
+
+	fprintf(logFile, "INFO::%d%d%d-%d:%d:%d::%s\n", year, month, day, hour, minute, second, str);
+	fclose(logFile);
+}
+
+void logWarning (char * str){
+    FILE * logFile = fopen("/home/maisie/fs.log", "a");
+    time_t rawtime;
+    struct tm * timeinfo;
+    time ( &rawtime );
+    timeinfo = localtime (&rawtime);
+
+    int year, month, day, hour, minute, second;
+    year = timeinfo->tm_year+1900;
+    month = timeinfo->tm_mon+1;
+    day = timeinfo->tm_mday;
+    hour = timeinfo->tm_hour;
+    minute = timeinfo->tm_min;
+    second = timeinfo->tm_sec;
+
+    fprintf(logFile, "WARNING::%d%d%d-%d:%d:%d::%s\n", year, month, day, hour, minute, second, str);
+    fclose(logFile);
+}
+```
