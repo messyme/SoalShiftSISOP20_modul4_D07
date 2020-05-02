@@ -93,14 +93,35 @@ static struct fuse_operations xmp_oper =
 ```
 xmp berfungsi untuk mengenkripsi dan mendekripsi file
 
+untuk mengecek ekstensi:
+```
+int ext (char *path){
+    for(int i=strlen(path)-1; i>=0; i--){
+        if(path[i] == '.') return i;
+    }
+    return strlen(path);
+}
+```
+
+untuk mengecek slash:
+```
+int slash (char *path, int akhir){
+    for(int i = 0; i < strlen(path); i++){
+        if(path[i] == '/') return i + 1;
+    }
+    return akhir;
+}
+```
+
 #### ENKRIPSI
 fungsi encrypt akan dipanggil di ```readdir``` dan ```rename```
 ```
 void encrypt_1 (char* str)
 {
 	if(!strcmp(str,".") || !strcmp(str,"..")) return;
-	int panjang = strlen(str);
-	for(int i=0; i<panjang; i++)
+	int awal = slash (nama,0);
+    int akhir = ext (nama);
+	for(int i=awal; i<akhir; i++)
 	{
 		for(int j=0; j<87; j++)
 		{
@@ -115,76 +136,6 @@ void encrypt_1 (char* str)
 	}
 }
 ```
-Program di atas adalah untuk mendapatkan indeks file tanpa slash yang akan dienkripsi atau di dekripsi.
-
-```
-int encrypt(char *src){
-    DIR *dp;
-    struct dirent *d;
-    char name[100];
-    char path[1000], path1[1000]; 
-    char path2[3000];
-
-    dp = opendir(src);
-    if(dp == NULL){
-        return -errno;
-    }
-
-    while ((d=readdir(dp)) != NULL){
-        struct stat stat;
-        memset(&stat, 0, sizeof(stat));
-
-        strcpy(name, d->d_name);
-        sprintf(path, "%s/%s", src, name);
-
-        if(strcmp(name, ".") && strcmp(name, "..") && d->d_type == DT_DIR){
-            char folder[1000];
-
-            strcpy(folder, name);
-            encrypt_1(folder);
-
-            strcpy(path1, path);
-            sprintf(path2, "%s/%s", path1, folder);
-
-            int res = rename(path1, path2);
-            if(res!=0){
-                return -errno;
-            }
-        }
-        if(d->d_type == DT_REG){
-            char *ext;
-
-            ext = strrchr(name, '.');
-
-            if(ext == NULL){
-                encrypt_1(name);
-                sprintf(path2, "%s/%s", path, name);
-            } else {
-                int z = strlen(ext);
-                size_t n = sizeof(name)/sizeof(name[0]);
-                
-                int noext = z-n+1;
-                char noname[1000];
-
-                snprintf(noname, noext, "%s", name);
-                encrypt_1(noname);
-
-                strcat(noname, ext);
-                sprintf(path2, "%s/%s", path, noname);
-            }
-
-            int res = rename(path, path2);
-            if(res!=0){
-                return -errno;
-            }
-        }
-    }
-
-    closedir(dp);
-    return 0;
-
-}
-```
 
 #### DEKRIPSI
 fungsi dekripsi akan dipanggil di ```getattr```, ```readdir```, ```read```, ```mkdir```, ```open```, dll.
@@ -193,8 +144,9 @@ void decrypt_1 (char* str)
 {
 	if(!strcmp(str,".") || !strcmp(str,"..")) 
         return;
-	int panjang = strlen(str);
-	for(int i=0; i<panjang; i++)
+	int awal = slash (nama,0);
+    int akhir = ext (nama);
+	for(int i=awal; i<akhir; i++)
 	{
 		for(int j=0; j<87; j++)
 		{
